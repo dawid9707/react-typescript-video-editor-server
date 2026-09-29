@@ -68,8 +68,14 @@ export function buildFFmpegArgs(s: ExportSettings, inputName: string, outputName
   args.push("-r", String(s.fps));
   args.push("-vf", `scale=${s.width}:${s.height}:flags=bicubic`);
   if (s.videoCodec === "h264" || s.videoCodec === "h265") {
-    args.push("-preset", "veryfast", "-pix_fmt", "yuv420p");
+    args.push("-preset", "veryfast", "-pix_fmt", "yuv420p", "-threads", "2");
     if (s.container === "mp4") args.push("-movflags", "+faststart");
+  } else if (s.videoCodec === "av1") {
+    args.push("-cpu-used", "8", "-row-mt", "1", "-threads", "2");
+  } else if (s.videoCodec === "vp9") {
+    args.push("-deadline", "realtime", "-cpu-used", "8", "-row-mt", "1", "-threads", "2");
+  } else if (s.videoCodec === "vp8") {
+    args.push("-deadline", "realtime", "-cpu-used", "6", "-threads", "2");
   }
   if (s.audioCodec === "none") {
     args.push("-an");

@@ -113,6 +113,35 @@ app.post("/transcode", upload.single("file"), async (req, res) => {
       if (idx === rawArgs.length - 1 || arg === rawOutputName || arg.startsWith("output.")) return outputPath;
       return arg;
     });
+
+    // Automatyczna ochrona przed wyczerpaniem pamięci RAM (512 MB) i przekroczeniem limitu czasu (100 s)
+    const hasAom = ffmpegArgs.includes("libaom-av1");
+    const hasVp9 = ffmpegArgs.includes("libvpx-vp9");
+    const hasVp8 = ffmpegArgs.includes("libvpx");
+    const hasThreads = ffmpegArgs.includes("-threads");
+
+    const extraFlags = [];
+    if (hasAom && !ffmpegArgs.includes("-cpu-used")) {
+      extraFlags.push("-cpu-used", "8", "-row-mt", "1");
+    }
+    if (hasVp9 && !ffmpegArgs.includes("-deadline")) {
+      extraFlags.push("-deadline", "realtime", "-cpu-used", "8", "-row-mt", "1");
+    }
+    if (hasVp8 && !ffmpegArgs.includes("-deadline")) {
+      extraFlags.push("-deadline", "realtime", "-cpu-used", "6");
+    }
+    if (!hasThreads) {
+      extraFlags.push("-threads", "2");
+    }
+
+    if (extraFlags.length > 0) {
+      const outIndex = ffmpegArgs.indexOf(outputPath);
+      if (outIndex !== -1) {
+        ffmpegArgs.splice(outIndex, 0, ...extraFlags);
+      } else {
+        ffmpegArgs.splice(ffmpegArgs.length - 1, 0, ...extraFlags);
+      }
+    }
   } else {
     // Domyślne transkodowanie do MP4 H.264 / AAC
     ffmpegArgs = [
