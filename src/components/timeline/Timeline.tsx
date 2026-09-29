@@ -12,7 +12,7 @@ import { createEffect } from "@/features/project/factory";
 import { formatTime, uid } from "@/utils/format";
 import { cn } from "@/utils/cn";
 
-const HEADER_WIDTH = 136;
+const HEADER_WIDTH = 220;
 const RULER_HEIGHT = 34;
 
 interface DragState {
@@ -47,28 +47,45 @@ const TrackHeader = memo(function TrackHeader({
   const moveTrack = useProjectStore((s) => s.moveTrack);
   const audio = track.kind === "audio" ? (track as AudioTrack) : null;
 
+  const borderAccent =
+    track.kind === "video"
+      ? "border-l-4 border-l-primary"
+      : track.kind === "audio"
+        ? "border-l-4 border-l-tertiary"
+        : "border-l-4 border-l-secondary";
+
   return (
     <div
-      className="sticky left-0 z-20 flex shrink-0 flex-col justify-center gap-1 border-b border-r border-outline-variant bg-surf px-2 py-1"
+      className={cn(
+        "sticky left-0 z-20 flex shrink-0 flex-col justify-center gap-1.5 border-b border-r border-outline-variant bg-surf px-2.5 py-1.5 transition-colors hover:bg-surf-high/40",
+        borderAccent,
+      )}
       style={{ width: HEADER_WIDTH, height: track.height }}
       draggable
       onDragStart={(e) => onDragStart(e, track.id)}
       onDragEnd={onDragEnd}
       title="Przeciągnij, aby zmienić kolejność ścieżki"
     >
-      <div className="flex items-center gap-1">
-        <Icon
-          name={track.kind === "video" ? "movie" : track.kind === "audio" ? "graphic_eq" : "subtitles"}
-          size={14}
-          className="text-on-surface-variant"
-        />
-        <input
-          value={track.name}
-          onChange={(e) => updateTrack(track.id, { name: e.target.value })}
-          aria-label={`Nazwa ścieżki ${track.name}`}
-          className="w-10 shrink-0 bg-transparent text-[11px] font-semibold text-on-surface outline-none focus:ring-1 focus:ring-primary"
-        />
-        <div className="flex flex-1 justify-end gap-0.5">
+      <div className="flex w-full items-center justify-between gap-1">
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+          <Icon
+            name="drag_indicator"
+            size={14}
+            className="cursor-grab shrink-0 text-on-surface-variant/60 active:cursor-grabbing"
+          />
+          <Icon
+            name={track.kind === "video" ? "movie" : track.kind === "audio" ? "graphic_eq" : "subtitles"}
+            size={14}
+            className="shrink-0 text-on-surface-variant"
+          />
+          <input
+            value={track.name}
+            onChange={(e) => updateTrack(track.id, { name: e.target.value })}
+            aria-label={`Nazwa ścieżki ${track.name}`}
+            className="w-16 shrink rounded bg-surf-high/60 px-1.5 py-0.5 text-[11px] font-semibold text-on-surface outline-none transition-colors hover:bg-surf-high focus:bg-surf focus:ring-1 focus:ring-primary sm:w-20"
+          />
+        </div>
+        <div className="flex shrink-0 items-center gap-0.5">
           {audio ? (
             <>
               <button
@@ -131,17 +148,23 @@ const TrackHeader = memo(function TrackHeader({
         </div>
       </div>
       {audio && (
-        <input
-          type="range"
-          className="md-slider h-3"
-          min={0}
-          max={1.5}
-          step={0.01}
-          value={audio.volume}
-          aria-label={`Głośność ${track.name}`}
-          style={{ ["--val" as string]: String(audio.volume / 1.5) }}
-          onChange={(e) => updateTrack(track.id, { volume: Number(e.target.value) })}
-        />
+        <div className="flex items-center gap-1.5 px-1">
+          <Icon name="volume_up" size={12} className="text-on-surface-variant" />
+          <input
+            type="range"
+            className="md-slider h-3 flex-1"
+            min={0}
+            max={1.5}
+            step={0.01}
+            value={audio.volume}
+            aria-label={`Głośność ${track.name}`}
+            style={{ ["--val" as string]: String(audio.volume / 1.5) }}
+            onChange={(e) => updateTrack(track.id, { volume: Number(e.target.value) })}
+          />
+          <span className="w-7 text-right font-mono text-[9px] text-on-surface-variant">
+            {Math.round(audio.volume * 100)}%
+          </span>
+        </div>
       )}
     </div>
   );

@@ -98,9 +98,9 @@ export function createTracks(): Track[] {
   return [
     { id: uid("trk"), kind: "video", name: "V2", height: 68, locked: false, hidden: false, opacity: 1 },
     { id: uid("trk"), kind: "video", name: "V1", height: 76, locked: false, hidden: false, opacity: 1 },
-    { id: uid("trk"), kind: "audio", name: "A1", height: 62, locked: false, hidden: false, volume: 1, pan: 0, muted: false, solo: false },
-    { id: uid("trk"), kind: "audio", name: "A2", height: 62, locked: false, hidden: false, volume: 1, pan: 0, muted: false, solo: false },
-    { id: uid("trk"), kind: "subtitle", name: "S1", height: 46, locked: false, hidden: false },
+    { id: uid("trk"), kind: "audio", name: "A1", height: 76, locked: false, hidden: false, volume: 1, pan: 0, muted: false, solo: false },
+    { id: uid("trk"), kind: "audio", name: "A2", height: 76, locked: false, hidden: false, volume: 1, pan: 0, muted: false, solo: false },
+    { id: uid("trk"), kind: "subtitle", name: "S1", height: 56, locked: false, hidden: false },
   ];
 }
 
