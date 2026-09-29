@@ -456,6 +456,14 @@ export function ExportDialog() {
               { value: "backend", label: "Backend", icon: "dns" },
             ]}
           />
+          {settings.engine === "backend" && (
+            <div className="flex flex-wrap items-center justify-between gap-1 rounded-[10px] bg-surf-high px-3 py-2 text-[12px]">
+              <span className="text-on-surface-variant">Serwer FFmpeg:</span>
+              <span className="truncate font-mono font-medium text-primary">
+                {backendUrl || "Brak adresu — skonfiguruj w Ustawieniach"}
+              </span>
+            </div>
+          )}
           {!ffmpegWasmAvailable && (
             <p className="text-[11px] text-warning">
               FFmpeg WASM jest wyłączone w tym środowisku, ponieważ przeglądarka blokuje zewnętrzne worker-y. Użyj silnika "Przeglądarka" lub podłącz backend.

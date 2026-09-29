@@ -96,14 +96,18 @@ export const defaultSettings: AppSettings = {
   autoSave: true,
   showWaveforms: true,
   timelineZoom: 60,
-  backendUrl: "",
+  backendUrl: "https://react-typescript-video-editor.onrender.com",
 };
 
 export function loadSettings(): AppSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (!raw) return { ...defaultSettings };
-    return { ...defaultSettings, ...(JSON.parse(raw) as Partial<AppSettings>) };
+    const parsed = JSON.parse(raw) as Partial<AppSettings>;
+    if (!parsed.backendUrl) {
+      parsed.backendUrl = defaultSettings.backendUrl;
+    }
+    return { ...defaultSettings, ...parsed };
   } catch {
     return { ...defaultSettings };
   }

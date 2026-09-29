@@ -28,10 +28,40 @@ export function SettingsDialog() {
   const close = useUiStore((s) => s.closeDialog);
   const s = useSettingsStore();
   const [storage, setStorage] = useState<{ usage: number; quota: number } | null>(null);
+  const [testingBackend, setTestingBackend] = useState(false);
+  const [backendStatus, setBackendStatus] = useState<"idle" | "ok" | "error">("idle");
+  const [backendMessage, setBackendMessage] = useState("");
 
   useEffect(() => {
     if (open) void storageEstimate().then(setStorage);
   }, [open]);
+
+  const testBackendConnection = async () => {
+    if (!s.backendUrl) {
+      setBackendStatus("error");
+      setBackendMessage("Wprowadź adres URL backendu.");
+      return;
+    }
+    setTestingBackend(true);
+    setBackendStatus("idle");
+    setBackendMessage("");
+    try {
+      const cleanUrl = s.backendUrl.trim().replace(/\/$/, "");
+      const res = await fetch(`${cleanUrl}/health`, { method: "GET" });
+      if (res.ok) {
+        setBackendStatus("ok");
+        setBackendMessage("Połączono z serwerem FFmpeg!");
+      } else {
+        setBackendStatus("error");
+        setBackendMessage(`Serwer zwrócił błąd HTTP ${res.status}.`);
+      }
+    } catch {
+      setBackendStatus("error");
+      setBackendMessage("Nie udało się połączyć (sprawdź adres lub wybudzenie serwera).");
+    } finally {
+      setTestingBackend(false);
+    }
+  };
 
   return (
     <Dialog
@@ -103,12 +133,39 @@ export function SettingsDialog() {
       </label>
 
       <SectionHeader title="Silnik renderowania" icon="memory" />
-      <TextField
-        label="Adres backendu z natywnym FFmpeg (opcjonalnie)"
-        placeholder="https://moj-serwer.example/api/ffmpeg"
-        value={s.backendUrl}
-        onChange={(e) => s.set("backendUrl", e.target.value)}
-      />
+      <div className="flex flex-col gap-2">
+        <TextField
+          label="Adres backendu z natywnym FFmpeg"
+          placeholder="https://react-typescript-video-editor.onrender.com"
+          value={s.backendUrl}
+          onChange={(e) => {
+            s.set("backendUrl", e.target.value);
+            setBackendStatus("idle");
+          }}
+        />
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <Button
+            variant="tonal"
+            icon={testingBackend ? "hourglass_empty" : "wifi_find"}
+            onClick={testBackendConnection}
+            disabled={testingBackend}
+          >
+            {testingBackend ? "Testowanie połączenia…" : "Testuj połączenie"}
+          </Button>
+          {backendStatus === "ok" && (
+            <span className="flex items-center gap-1 text-[12px] font-medium text-primary">
+              <Icon name="check_circle" size={16} filled />
+              {backendMessage}
+            </span>
+          )}
+          {backendStatus === "error" && (
+            <span className="flex items-center gap-1 text-[12px] font-medium text-error">
+              <Icon name="error" size={16} filled />
+              {backendMessage}
+            </span>
+          )}
+        </div>
+      </div>
       <p className="pt-1 text-[11px] text-on-surface-variant">
         Oczekiwany kontrakt: <code>GET /health</code> oraz <code>POST /transcode</code> (multipart: file, settings, args)
         zwracające zakodowany plik.
