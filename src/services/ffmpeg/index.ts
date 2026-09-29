@@ -299,38 +299,76 @@ export class BackendFFmpeg implements FFmpegEngine {
   async isAvailable(): Promise<boolean> {
     if (!this.baseUrl) return false;
     try {
-      const res = await fetch(`${this.baseUrl.replace(/\/$/, "")}/health`, { method: "GET" });
+      const clean = this.baseUrl.replace(/\/$/, "");
+      const res = await fetch(`${clean}/health`, { method: "GET" });
       return res.ok;
     } catch {
       return false;
     }
   }
 
-  async load(): Promise<void> {
+  async load(onProgress?: (ratio: number, message: string) => void): Promise<void> {
     if (!this.baseUrl) {
       throw new Error(
         "Nie skonfigurowano adresu backendu FFmpeg. Podaj go w Ustawieniach → Silnik renderowania.",
       );
     }
-    if (!(await this.isAvailable())) {
-      throw new Error(`Backend FFmpeg (${this.baseUrl}) jest niedostępny.`);
+    onProgress?.(0.04, "Łączenie z serwerem FFmpeg (wybudzanie darmowego serwera może potrwać ~30-50 s)…");
+    const ok = await this.isAvailable();
+    if (!ok) {
+      throw new Error(`Serwer FFmpeg (${this.baseUrl}) jest niedostępny lub zwrócił błąd 502. Upewnij się, że usługa na Renderze działa, lub wyrenderuj wideo bezpośrednio w przeglądarce.`);
     }
   }
 
   async transcode(req: TranscodeRequest): Promise<Blob> {
-    await this.load();
+    await this.load(req.onProgress);
     const form = new FormData();
     form.append("file", req.input, req.inputName);
     form.append("settings", JSON.stringify(req.settings));
     form.append("args", JSON.stringify(req.extraArgs ?? buildFFmpegArgs(req.settings, req.inputName, req.outputName)));
-    req.onProgress?.(0.1, "Wysyłanie materiału do backendu…");
-    const res = await fetch(`${this.baseUrl.replace(/\/$/, "")}/transcode`, {
-      method: "POST",
-      body: form,
-      signal: req.signal,
-    });
-    if (!res.ok) throw new Error(`Backend zwrócił błąd HTTP ${res.status}.`);
-    req.onProgress?.(0.9, "Pobieranie wyniku…");
+    
+    req.onProgress?.(0.1, "Wysyłanie materiału i transkodowanie na serwerze…");
+
+    // Dynamiczny wskaźnik postępu podczas oczekiwania na odpowiedź serwera
+    let currentRatio = 0.1;
+    const progressTimer = setInterval(() => {
+      if (currentRatio < 0.88) {
+        currentRatio = Math.min(0.88, currentRatio + 0.05);
+        req.onProgress?.(currentRatio, "Transkodowanie materiału na serwerze FFmpeg w toku…");
+      }
+    }, 1000);
+
+    let res: Response;
+    try {
+      res = await fetch(`${this.baseUrl.replace(/\/$/, "")}/transcode`, {
+        method: "POST",
+        body: form,
+        signal: req.signal,
+      });
+    } catch (err: unknown) {
+      clearInterval(progressTimer);
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("abort") || req.signal?.aborted) {
+        throw new DOMException("Eksport anulowany", "AbortError");
+      }
+      throw new Error(
+        `Błąd połączenia z serwerem (${this.baseUrl}): problem z siecią lub błąd CORS. Serwer na Renderze mógł zostać uśpiony lub zrestartowany.`,
+      );
+    } finally {
+      clearInterval(progressTimer);
+    }
+
+    if (!res.ok) {
+      if (res.status === 502) {
+        throw new Error(
+          "Serwer zwrócił błąd 502 (Bad Gateway). Darmowy serwer na Renderze ma limit 512 MB RAM i mógł zostać ubity przez brak pamięci dla tego formatu. Użyj formatu MP4 (H.264) lub silnika „Przeglądarka”.",
+        );
+      }
+      const errText = await res.text().catch(() => "");
+      throw new Error(errText || `Serwer zwrócił błąd HTTP ${res.status}.`);
+    }
+
+    req.onProgress?.(0.92, "Pobieranie wyrenderowanego pliku z serwera…");
     const blob = await res.blob();
     if (req.settings.container !== "webm" && (blob.type === "video/webm" || (await startsWithEbml(blob)))) {
       throw new Error(

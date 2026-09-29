@@ -277,9 +277,24 @@ export function ExportDialog() {
             )}
           </div>
           {(phase === "error" || phase === "cancelled") && (
-            <Button variant="tonal" icon="restart_alt" onClick={() => store.reset()}>
-              Wróć do ustawień
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="tonal" icon="restart_alt" onClick={() => store.reset()}>
+                Wróć do ustawień
+              </Button>
+              {settings.engine === "backend" && (
+                <Button
+                  variant="filled"
+                  icon="speed"
+                  onClick={() => {
+                    store.patch({ engine: "mediarecorder" });
+                    store.reset();
+                    setTimeout(() => void start(), 60);
+                  }}
+                >
+                  Wyrenderuj w przeglądarce (lokalnie)
+                </Button>
+              )}
+            </div>
           )}
         </div>
       ) : (
@@ -457,12 +472,17 @@ export function ExportDialog() {
             ]}
           />
           {settings.engine === "backend" && (
-            <div className="flex flex-wrap items-center justify-between gap-1 rounded-[10px] bg-surf-high px-3 py-2 text-[12px]">
-              <span className="text-on-surface-variant">Serwer FFmpeg:</span>
-              <span className="truncate font-mono font-medium text-primary">
-                {backendUrl || "Brak adresu — skonfiguruj w Ustawieniach"}
-              </span>
-            </div>
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-1 rounded-[10px] bg-surf-high px-3 py-2 text-[12px]">
+                <span className="text-on-surface-variant">Serwer FFmpeg:</span>
+                <span className="truncate font-mono font-medium text-primary">
+                  {backendUrl || "Brak adresu — skonfiguruj w Ustawieniach"}
+                </span>
+              </div>
+              <p className="text-[11px] text-on-surface-variant">
+                Wskazówka: Darmowy serwer Render usypia się po 15 min. Pierwsze wybudzenie może zająć 30–50 s. Aby zapisać wideo natychmiast, wybierz <strong>Przeglądarka</strong>.
+              </p>
+            </>
           )}
           {!ffmpegWasmAvailable && (
             <p className="text-[11px] text-warning">

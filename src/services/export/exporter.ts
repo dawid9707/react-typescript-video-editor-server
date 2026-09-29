@@ -153,6 +153,12 @@ export async function runExport(req: ExportRequest): Promise<ExportResult> {
 
   req.onProgress("preparing", 0.02, "Przygotowywanie renderera…");
 
+  if (settings.engine === "backend") {
+    req.onProgress("preparing", 0.01, "Sprawdzanie stanu serwera FFmpeg…");
+    const preCheck = new BackendFFmpeg(req.backendUrl);
+    await preCheck.load((ratio, msg) => req.onProgress("preparing", ratio, msg));
+  }
+
   if (settings.engine === "mediarecorder") {
     let mime = findRecorderMime(settings.container, settings.videoCodec, settings.audioCodec);
     if (!mime) {

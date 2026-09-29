@@ -7,7 +7,7 @@ import path from "path";
 import os from "os";
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 10000;
 
 // Katalog tymczasowy dla operacji wideo
 const TEMP_DIR = path.join(os.tmpdir(), "freecut-renders");
