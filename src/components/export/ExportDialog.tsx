@@ -16,7 +16,7 @@ import { useProjectStore } from "@/stores/projectStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useUiStore } from "@/stores/uiStore";
 import { EXPORT_PROFILES, FPS_OPTIONS, RESOLUTION_PRESETS, estimateFileSize, recommendedBitrate } from "@/services/export/profiles";
-import { capabilities, findRecorderMime, recorderSupports } from "@/services/export/capabilities";
+import { capabilities, findRecorderMime, isFormatSupported } from "@/services/export/capabilities";
 import { deliverResult, runExport } from "@/services/export/exporter";
 import { projectDuration } from "@/features/timeline/selectors";
 import { serializeSrt } from "@/services/subtitles/parse";
@@ -57,85 +57,68 @@ export function ExportDialog() {
     !window.location.hostname.includes("app.github.dev") &&
     !window.location.hostname.includes("github.dev");
 
-  const mediaRecorderVideoCandidates = [
+  const allContainers: ExportContainer[] = settings.engine === "backend" ? ["mp4", "webm", "mkv", "gif"] : ["mp4", "webm"];
+  const videoCandidates = [
     { value: "h264" as const, label: "H.264 / AVC" },
     { value: "h265" as const, label: "H.265 / HEVC" },
     { value: "vp9" as const, label: "VP9" },
     { value: "vp8" as const, label: "VP8" },
     { value: "av1" as const, label: "AV1" },
   ];
-  const mediaRecorderAudioCandidates = [
+  const audioCandidates = [
     { value: "aac" as const, label: "AAC" },
     { value: "opus" as const, label: "Opus" },
     { value: "vorbis" as const, label: "Vorbis" },
     { value: "none" as const, label: "Bez dźwięku" },
   ];
 
-  const mediaRecorderVideoOptions = mediaRecorderVideoCandidates.filter((video) =>
-    mediaRecorderAudioCandidates.some((audio) => recorderSupports(settings.container, video.value, audio.value)),
-  );
-  const mediaRecorderAudioOptions = mediaRecorderAudioCandidates.filter((audio) =>
-    mediaRecorderVideoCandidates.some((video) => recorderSupports(settings.container, video.value, audio.value)),
-  );
-  const supportedContainers = (["mp4", "webm"] as ExportContainer[]).filter((container) =>
-    mediaRecorderVideoCandidates.some((video) =>
-      mediaRecorderAudioCandidates.some((audio) => recorderSupports(container, video.value, audio.value)),
+  const supportedContainers = allContainers.filter((container) =>
+    videoCandidates.some((video) =>
+      audioCandidates.some((audio) => isFormatSupported(settings.engine, container, video.value, audio.value)),
     ),
   );
+
+  const videoCodecOptions = videoCandidates.filter((video) =>
+    audioCandidates.some((audio) => isFormatSupported(settings.engine, settings.container, video.value, audio.value)),
+  );
+
+  const audioCodecOptions = audioCandidates.filter((audio) =>
+    isFormatSupported(settings.engine, settings.container, settings.videoCodec, audio.value),
+  );
+
   const visibleProfiles = EXPORT_PROFILES.filter((profile) => {
-    if (settings.engine !== "mediarecorder" || profile.id === "custom") return true;
+    if (profile.id === "custom") return true;
     const container = profile.patch.container ?? settings.container;
     const video = profile.patch.videoCodec ?? settings.videoCodec;
     const audio = profile.patch.audioCodec ?? settings.audioCodec;
-    return recorderSupports(container, video, audio);
+    return isFormatSupported(settings.engine, container, video, audio);
   });
-
-  const videoCodecOptions = settings.engine === "mediarecorder"
-    ? mediaRecorderVideoOptions
-    : [
-        { value: "h264", label: "H.264 / AVC" },
-        { value: "h265", label: "H.265 / HEVC" },
-        { value: "vp9", label: "VP9" },
-        { value: "vp8", label: "VP8" },
-        { value: "av1", label: "AV1" },
-      ];
-
-  const audioCodecOptions = settings.engine === "mediarecorder"
-    ? mediaRecorderAudioOptions
-    : [
-        { value: "aac", label: "AAC" },
-        { value: "opus", label: "Opus" },
-        { value: "vorbis", label: "Vorbis" },
-        { value: "none", label: "Bez dźwięku" },
-      ];
 
   const nativeMime = useMemo(
     () => findRecorderMime(settings.container, settings.videoCodec, settings.audioCodec),
     [settings.container, settings.videoCodec, settings.audioCodec],
   );
+
   useEffect(() => {
-    if (settings.engine !== "mediarecorder") return;
     if (!supportedContainers.includes(settings.container)) {
       store.patch({ container: supportedContainers[0] ?? "webm", profileId: "custom" });
       return;
     }
-    const video = mediaRecorderVideoOptions.some((option) => option.value === settings.videoCodec)
+    const video = videoCodecOptions.some((option) => option.value === settings.videoCodec)
       ? settings.videoCodec
-      : mediaRecorderVideoOptions[0]?.value;
-    const audio = mediaRecorderAudioOptions.some((option) => option.value === settings.audioCodec)
+      : videoCodecOptions[0]?.value;
+    const audio = audioCodecOptions.some((option) => option.value === settings.audioCodec)
       ? settings.audioCodec
-      : mediaRecorderAudioOptions[0]?.value;
-    if (video && audio && !recorderSupports(settings.container, video, audio)) {
-      const compatibleVideo = mediaRecorderVideoOptions.find((option) =>
-        recorderSupports(settings.container, option.value, audio),
+      : audioCodecOptions[0]?.value;
+    if (video && audio && !isFormatSupported(settings.engine, settings.container, video, audio)) {
+      const compatibleVideo = videoCodecOptions.find((option) =>
+        isFormatSupported(settings.engine, settings.container, option.value, audio),
       )?.value;
       store.patch({ videoCodec: compatibleVideo ?? video, audioCodec: audio, profileId: "custom" });
     } else if (video !== settings.videoCodec || audio !== settings.audioCodec) {
       store.patch({ videoCodec: video, audioCodec: audio, profileId: "custom" });
     }
-    // Options are derived from the browser's MediaRecorder support.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.container, settings.engine, settings.videoCodec, settings.audioCodec]);
+  }, [settings.container, settings.engine, settings.videoCodec, settings.audioCodec, supportedContainers, videoCodecOptions, audioCodecOptions]);
   const engineNote =
     settings.engine === "mediarecorder"
       ? nativeMime

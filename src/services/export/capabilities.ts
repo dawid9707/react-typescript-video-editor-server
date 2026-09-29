@@ -108,6 +108,42 @@ export function recorderSupports(container: ExportContainer, video: ExportVideoC
   return findRecorderMime(container, video, audio) !== null;
 }
 
+export function backendSupports(
+  container: ExportContainer,
+  video: ExportVideoCodec,
+  audio: ExportAudioCodec,
+): boolean {
+  if (container === "webm") {
+    const validVideo = video === "vp9" || video === "vp8" || video === "av1";
+    const validAudio = audio === "opus" || audio === "vorbis" || audio === "none";
+    return validVideo && validAudio;
+  }
+  if (container === "mp4") {
+    const validVideo = video === "h264" || video === "h265" || video === "av1";
+    const validAudio = audio === "aac" || audio === "opus" || audio === "none";
+    return validVideo && validAudio;
+  }
+  if (container === "mkv") {
+    return true;
+  }
+  if (container === "gif") {
+    return audio === "none";
+  }
+  return false;
+}
+
+export function isFormatSupported(
+  engine: "mediarecorder" | "backend",
+  container: ExportContainer,
+  video: ExportVideoCodec,
+  audio: ExportAudioCodec,
+): boolean {
+  if (engine === "mediarecorder") {
+    return recorderSupports(container, video, audio);
+  }
+  return backendSupports(container, video, audio);
+}
+
 /** Best available recorder mime — used as an intermediate for FFmpeg transcoding. */
 export function bestIntermediateMime(): string | null {
   if (typeof MediaRecorder === "undefined") return null;
